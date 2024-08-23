@@ -21,7 +21,7 @@
    - Under the **Format** section, choose **Comma Delimited .csv**.
 
 ## Step 6: Save the File in UTF-8 Format
-1. Before clicking the **Export** button, ensure that the **Include UTF-8 BOM** option is selected (if available).
+1. Before clicking the **Export** button, ensure that the **Include UTF-8** option is selected (if available).
    - Some versions of Salesforce automatically export in UTF-8 format. However, if this option is available, it ensures proper encoding.
 2. Click on **Export** to download the report.
 3. Choose the location on your computer where you want to save the file and ensure the file extension is `.csv`.
