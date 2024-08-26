@@ -49,4 +49,25 @@ def apply_clustering_to_all(df, random_key_state=42):
         engineer_features = features[df['Engineer Name'] == engineer]
         
         # Loop through each Part Number for the engineer
-        for _, row in engineer_part_counts[en
+        for _, row in engineer_part_counts[engineer_part_counts['Engineer Name'] == engineer].iterrows():
+            part_number = row['Part_Number']
+            part_cases = engineer_cases[engineer_cases['Part_Number'] == part_number]
+            
+            # Subset features for the part number
+            part_indices = part_cases.index
+            part_features = engineer_features[part_indices]
+            
+            # Determine the number of clusters (you may adjust this logic)
+            number_of_clusters = min(len(part_cases), 5)  # Example: cap clusters at 5 or less if fewer cases
+            
+            # Apply clustering
+            clustered_df = text_clustering_with_labels(part_cases, part_features, number_of_clusters, random_key_state)
+            
+            # Append the clustered data
+            all_clusters = pd.concat([all_clusters, clustered_df], ignore_index=True)
+    
+    return all_clusters
+
+# Example usage
+# Assuming df is your DataFrame with the relevant columns
+# final_clusters = apply_clustering_to_all(df)
