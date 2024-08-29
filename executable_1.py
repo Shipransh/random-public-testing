@@ -74,11 +74,17 @@ for file_name in os.listdir(current_directory):
             unmatched_rows['File'] = file_name
             unmatched_report = pd.concat([unmatched_report, unmatched_rows], ignore_index=True)
 
-# Reorder columns for the final report
-unmatched_report = unmatched_report[['File', 'Sheet Name', 'Row', 'Key', 'Old Info', 'New Info']]
+# Check if the unmatched_report is not empty and contains the expected columns before reordering
+if not unmatched_report.empty:
+    if set(['File', 'Sheet Name', 'Row', 'Key', 'Old Info', 'New Info']).issubset(unmatched_report.columns):
+        unmatched_report = unmatched_report[['File', 'Sheet Name', 'Row', 'Key', 'Old Info', 'New Info']]
+    else:
+        print("Expected columns are missing in the report DataFrame.")
 
-# Output the report with all unmatched rows
-report_file_path = os.path.join(current_directory, 'unmatched_report.xlsx')
-unmatched_report.to_excel(report_file_path, index=False)
-
-print(f"All Excel files have been processed. Unmatched report saved to {report_file_path}.")
+# Output the report with all unmatched rows if there are any
+if not unmatched_report.empty:
+    report_file_path = os.path.join(current_directory, 'unmatched_report.xlsx')
+    unmatched_report.to_excel(report_file_path, index=False)
+    print(f"Unmatched report saved to {report_file_path}.")
+else:
+    print("No unmatched rows to report.")
