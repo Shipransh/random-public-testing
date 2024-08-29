@@ -51,7 +51,7 @@ def process_file(file_path):
                 unmatched_rows_all_sheets = pd.concat([unmatched_rows_all_sheets, unmatched_rows], ignore_index=True)
             
             # Save the modified DataFrame back to the same sheet in the Excel file
-            with pd.ExcelWriter(file_path, mode='a', if_sheet_exists='replace') as writer:
+            with pd.ExcelWriter(file_path, mode='a', if_sheet_exists='replace', engine='openpyxl') as writer:
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
         except Exception as e:
             print(f"Error processing sheet {sheet_name} in file {file_path}: {e}")
