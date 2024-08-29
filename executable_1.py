@@ -30,8 +30,8 @@ def process_sheet(df):
 # Function to process each file
 def process_file(file_path):
     try:
-        # Load the Excel file with headers
-        xls = pd.ExcelFile(file_path)
+        # Load the Excel file without interpreting the first row as headers
+        xls = pd.ExcelFile(file_path, engine='openpyxl')
     except Exception as e:
         print(f"Error processing file {file_path}: {e}")
         return pd.DataFrame()  # Return an empty DataFrame if there was an error
@@ -41,7 +41,12 @@ def process_file(file_path):
     # Process each sheet in the Excel file
     for sheet_name in xls.sheet_names:
         try:
-            df = pd.read_excel(xls, sheet_name=sheet_name)
+            # Load each sheet without headers, so the first row remains data
+            df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
+
+            # Rename columns as specified
+            df.columns = ['Index_1', 'Key', 'Value_1', 'Unused_1', 'Unused_2', 
+                          'Index_2', 'Key', 'Unused_3', 'Value_2', 'Unused_4']
             
             # Process the sheet
             unmatched_rows = process_sheet(df)
