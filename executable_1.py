@@ -9,15 +9,18 @@ def process_sheet(df):
     col_key_index_2 = 6    # Column for Key (second appearance)
     col_value_index_2 = 8  # Column for Value_2
 
-    # Create a mapping from Key to Value_1, marking any duplicates as invalid
-    key_value_map = df.groupby(df.columns[col_key_index_1])[df.columns[col_value_index_1]].apply(
-        lambda x: x.iloc[0] if len(x) == 1 else None)
+    # Group by Key in the first appearance and handle duplicates by marking them as invalid
+    key_value_map = df.groupby(df.iloc[:, col_key_index_1])[df.iloc[:, col_value_index_1]].apply(
+        lambda x: x.iloc[0] if len(x) == 1 else None
+    )
 
     # Map the Key from the second set to the first set's values
     mapped_values = df.iloc[:, col_key_index_2].map(key_value_map)
 
-    # Mark as False if there's a mismatch, or if there were duplicates or missing data
+    # Create a boolean column that checks if Value_1 matches Value_2 based on Key
     df['Match'] = mapped_values == df.iloc[:, col_value_index_2]
+
+    # Mark as False if there's a mismatch or if there were duplicates or missing data
     df['Match'] = df['Match'].fillna(False)
 
     # Extract unmatched rows and add additional details for the report
@@ -48,7 +51,7 @@ def process_file(file_path):
 
             # Rename columns as specified
             df.columns = ['Index_1', 'Key', 'Value_1', 'Unused_1', 'Unused_2', 
-                          'Index_2', 'Key', 'Unused_3', 'Value_2', 'Unused_4']
+                          'Index_2', 'Key_2', 'Unused_3', 'Value_2', 'Unused_4']
             
             # Process the sheet
             unmatched_rows = process_sheet(df)
