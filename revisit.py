@@ -30,7 +30,7 @@ def process_sheet(df):
     unmatched_rows['New Info'] = df.iloc[:, col_value_index_2]
     unmatched_rows['Row'] = unmatched_rows.index + 1  # Adding 1 to make the row number 1-based
 
-    return unmatched_rows[['Key', 'Old Info', 'New Info', 'Row']]
+    return unmatched_rows[[col_key_index_1, col_value_index_1, col_value_index_2, 'Row']]
 
 # Function to process each file
 def process_file(file_path):
@@ -80,15 +80,8 @@ for file_name in os.listdir(current_directory):
             unmatched_rows['File'] = file_name
             unmatched_report = pd.concat([unmatched_report, unmatched_rows], ignore_index=True)
 
-# Check if the unmatched_report is not empty and contains the expected columns before reordering
-if not unmatched_report.empty:
-    if set(['File', 'Sheet Name', 'Row', 'Key', 'Old Info', 'New Info']).issubset(unmatched_report.columns):
-        unmatched_report = unmatched_report[['File', 'Sheet Name', 'Row', 'Key', 'Old Info', 'New Info']]
-    else:
-        print("Expected columns are missing in the report DataFrame.")
-
 # Output the report with all unmatched rows if there are any
-if not unmatched_report.empty:
+if not unmatched_report.empty():
     report_file_path = os.path.join(current_directory, 'unmatched_report.xlsx')
     unmatched_report.to_excel(report_file_path, index=False)
     print(f"Unmatched report saved to {report_file_path}.")
