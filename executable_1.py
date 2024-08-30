@@ -9,14 +9,16 @@ def process_sheet(df):
     col_key_index_2 = 6    # Column for Key (second appearance)
     col_value_index_2 = 8  # Column for Value_2
 
-    # Group by Key and take the first value for cases where there are duplicates
-    key_value_map = df.groupby(df.columns[col_key_index_1])[df.columns[col_value_index_1]].first()
+    # Create a mapping from Key to Value_1, marking any duplicates as invalid
+    key_value_map = df.groupby(df.columns[col_key_index_1])[df.columns[col_value_index_1]].apply(
+        lambda x: x.iloc[0] if len(x) == 1 else None)
 
     # Map the Key from the second set to the first set's values
     mapped_values = df.iloc[:, col_key_index_2].map(key_value_map)
-    
-    # Create a boolean column that checks if Value_1 matches Value_2 based on Key
+
+    # Mark as False if there's a mismatch, or if there were duplicates or missing data
     df['Match'] = mapped_values == df.iloc[:, col_value_index_2]
+    df['Match'] = df['Match'].fillna(False)
 
     # Extract unmatched rows and add additional details for the report
     unmatched_rows = df[df['Match'] == False].copy()
