@@ -19,11 +19,13 @@ def process_sheet(df):
     df['Match'] = mapped_values == df.iloc[:, col_value_index_2]
 
     # Extract unmatched rows and add additional details for the report
-    unmatched_rows = df[df['Match'] == False].copy()
-    unmatched_rows['Key'] = df.iloc[:, col_key_index_1]
-    unmatched_rows['Old Info'] = df.iloc[:, col_value_index_1]
-    unmatched_rows['New Info'] = df.iloc[:, col_value_index_2]
-    unmatched_rows['Row'] = unmatched_rows.index + 1  # Adding 1 to make the row number 1-based
+    unmatched_rows = pd.DataFrame()  # Ensure unmatched_rows is defined as an empty DataFrame by default
+    if not df['Match'].all():
+        unmatched_rows = df[df['Match'] == False].copy()
+        unmatched_rows['Key'] = df.iloc[:, col_key_index_1]
+        unmatched_rows['Old Info'] = df.iloc[:, col_value_index_1]
+        unmatched_rows['New Info'] = df.iloc[:, col_value_index_2]
+        unmatched_rows['Row'] = unmatched_rows.index + 1  # Adding 1 to make the row number 1-based
 
     return unmatched_rows[['Key', 'Old Info', 'New Info', 'Row']]
 
@@ -52,7 +54,7 @@ def process_file(file_path):
                 unmatched_rows_all_sheets = pd.concat([unmatched_rows_all_sheets, unmatched_rows], ignore_index=True)
             
             # Save the modified DataFrame back to the same sheet in the Excel file
-            with pd.ExcelWriter(file_path, mode='a', if_sheet_exists='replace') as writer:
+            with pd.ExcelWriter(file_path, mode='a', if_sheet_exists='replace', engine='openpyxl') as writer:
                 df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)  # Save without headers
         except Exception as e:
             print(f"Error processing sheet {sheet_name} in file {file_path}: {e}")
@@ -81,7 +83,7 @@ if not unmatched_report.empty:
 
     # Output the report with all unmatched rows
     report_file_path = os.path.join(current_directory, 'unmatched_report.xlsx')
-    unmatched_report.to_excel(report_file_path, index=False)
+    unmatched_report.to_excel(report_file_path, index=False, engine='openpyxl')
 
     print(f"All Excel files have been processed. Unmatched report saved to {report_file_path}.")
 else:
