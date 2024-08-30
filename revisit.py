@@ -9,19 +9,14 @@ def process_sheet(df):
     col_key_index_2 = 6    # Column for Key (second appearance)
     col_value_index_2 = 8  # Column for Value_2
 
-    # Group by Key in the first appearance and handle duplicates by marking them as invalid
-    key_value_map = df.groupby(df.iloc[:, col_key_index_1])[df.iloc[:, col_value_index_1]].apply(
-        lambda x: x.iloc[0] if len(x) == 1 else None
-    )
+    # Group by Key in the first appearance and handle duplicates by taking the first non-null value
+    key_value_map = df.groupby(df.columns[col_key_index_1])[df.columns[col_value_index_1]].first()
 
     # Map the Key from the second set to the first set's values
     mapped_values = df.iloc[:, col_key_index_2].map(key_value_map)
 
     # Create a boolean column that checks if Value_1 matches Value_2 based on Key
     df['Match'] = mapped_values == df.iloc[:, col_value_index_2]
-
-    # Mark as False if there's a mismatch or if there were duplicates or missing data
-    df['Match'] = df['Match'].fillna(False)
 
     # Extract unmatched rows and add additional details for the report
     unmatched_rows = df[df['Match'] == False].copy()
@@ -30,13 +25,13 @@ def process_sheet(df):
     unmatched_rows['New Info'] = df.iloc[:, col_value_index_2]
     unmatched_rows['Row'] = unmatched_rows.index + 1  # Adding 1 to make the row number 1-based
 
-    return unmatched_rows[[col_key_index_1, col_value_index_1, col_value_index_2, 'Row']]
+    return unmatched_rows[['Key', 'Old Info', 'New Info', 'Row']]
 
 # Function to process each file
 def process_file(file_path):
     try:
-        # Load the Excel file without interpreting the first row as headers
-        xls = pd.ExcelFile(file_path, engine='openpyxl')
+        # Load the Excel file with headers as None since no headers are expected
+        xls = pd.ExcelFile(file_path)
     except Exception as e:
         print(f"Error processing file {file_path}: {e}")
         return pd.DataFrame()  # Return an empty DataFrame if there was an error
@@ -46,9 +41,9 @@ def process_file(file_path):
     # Process each sheet in the Excel file
     for sheet_name in xls.sheet_names:
         try:
-            # Load each sheet without headers, so the first row remains data
+            # Load the sheet without headers
             df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
-
+            
             # Process the sheet
             unmatched_rows = process_sheet(df)
         
@@ -57,8 +52,8 @@ def process_file(file_path):
                 unmatched_rows_all_sheets = pd.concat([unmatched_rows_all_sheets, unmatched_rows], ignore_index=True)
             
             # Save the modified DataFrame back to the same sheet in the Excel file
-            with pd.ExcelWriter(file_path, mode='a', if_sheet_exists='replace', engine='openpyxl') as writer:
-                df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+            with pd.ExcelWriter(file_path, mode='a', if_sheet_exists='replace') as writer:
+                df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)  # Save without headers
         except Exception as e:
             print(f"Error processing sheet {sheet_name} in file {file_path}: {e}")
     
@@ -80,10 +75,14 @@ for file_name in os.listdir(current_directory):
             unmatched_rows['File'] = file_name
             unmatched_report = pd.concat([unmatched_report, unmatched_rows], ignore_index=True)
 
-# Output the report with all unmatched rows if there are any
-if not unmatched_report.empty():
+# Check if the report is not empty before trying to reorder and save it
+if not unmatched_report.empty:
+    unmatched_report = unmatched_report[['File', 'Sheet Name', 'Row', 'Key', 'Old Info', 'New Info']]
+
+    # Output the report with all unmatched rows
     report_file_path = os.path.join(current_directory, 'unmatched_report.xlsx')
     unmatched_report.to_excel(report_file_path, index=False)
-    print(f"Unmatched report saved to {report_file_path}.")
+
+    print(f"All Excel files have been processed. Unmatched report saved to {report_file_path}.")
 else:
-    print("No unmatched rows to report.")
+    print("No unmatched rows found across all files.")
