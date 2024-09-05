@@ -19,11 +19,22 @@ def process_excel_file(file_path):
                 # Read each sheet into a dataframe
                 df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
 
-                # Perform a lookup for each row in column 7 (New Data Key) to find the corresponding old value in column 2
-                df[10] = df[7].map(df.set_index(2)[3])  # Lookup old data value (Value_1 from column 3) based on Key (column 2)
+                # Separate the old and new data for merging
+                old_data = df[[2, 3]]  # Old data: columns 2 (Key) and 3 (Value_1)
+                new_data = df[[7, 9]]  # New data: columns 7 (Key) and 9 (Value_2)
 
-                # Compare the Value_1 (column 10) and Value_2 (column 9) and store the result in the new column 11
-                df[11] = df[9] == df[10]  # True if they match, False if they do not
+                # Rename columns to make them easier to merge
+                old_data.columns = ['Old_Key', 'Value_1']
+                new_data.columns = ['New_Key', 'Value_2']
+
+                # Merge the old and new data on their keys
+                merged_data = pd.merge(new_data, old_data, left_on='New_Key', right_on='Old_Key', how='left')
+
+                # Add the merged data back to the original dataframe in column 10 for Value_1_Lookup
+                df[10] = merged_data['Value_1']
+
+                # Compare Value_1_Lookup (column 10) and Value_2 (column 9) and store the result in column 11
+                df[11] = df[9] == df[10]  # True if matched, False if not
 
                 # Find unmatched rows (where Match is False)
                 unmatched_df = df[~df[11]].copy()  # Rows where Match is False
@@ -32,14 +43,14 @@ def process_excel_file(file_path):
                 if not unmatched_df.empty:
                     for row in unmatched_df.itertuples():
                         unmatched_rows.append({
-                            'Key': row[2],  # Old Key
-                            'Old Info': row[3],  # Old Value_1
+                            'Key': row[7],  # New Key
+                            'Old Info': row[10],  # Old Value_1 (from lookup)
                             'New Info': row[9],  # New Value_2
                             'Sheet Name': sheet_name,
                             'Row Number': row.Index + 1  # Row index in the file (1-based for Excel)
                         })
 
-                # Write back the modified dataframe with the new columns (10 and 11) to the same sheet
+                # Write back the modified dataframe with new columns (10 and 11) to the same sheet
                 with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
                     df.to_excel(writer, sheet_name=sheet_name, header=False, index=False)
 
