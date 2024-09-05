@@ -1,86 +1,73 @@
 import os
 import pandas as pd
-from openpyxl import load_workbook
+import openpyxl
+from openpyxl.utils.exceptions import InvalidFileException
 
-# Function to process each Excel file and sheet
+# Define the folder containing Excel files
+folder_path = './excel_files/'  # Change to your folder path
+
+# Define the column indices (1-based indexing)
+KEY_COL_1 = 1  # Key in column 2
+VALUE_1_COL = 2  # Value_1 in column 3
+KEY_COL_2 = 6  # Key in column 7
+VALUE_2_COL = 8  # Value_2 in column 9
+
+# Output report file for unmatched rows
+output_report_file = 'unmatched_rows_report.csv'
+
+# Initialize a DataFrame to collect all unmatched rows
+unmatched_rows = pd.DataFrame(columns=['Key', 'Old Info', 'New Info', 'Sheet Name', 'Row Number'])
+
 def process_excel_file(file_path):
     try:
-        # Load the workbook
-        wb = load_workbook(filename=file_path, data_only=True)
-        unmatched_rows = []
+        # Load the Excel file
+        excel_file = pd.ExcelFile(file_path)
+        print(f'Processing file: {file_path}')
         
-        for sheet_name in wb.sheetnames:
-            # Read the sheet into a DataFrame
+        # Loop through all sheets
+        for sheet_name in excel_file.sheet_names:
+            print(f'Processing sheet: {sheet_name}')
+            # Read the sheet into a DataFrame (no headers)
             df = pd.read_excel(file_path, sheet_name=sheet_name, header=None)
 
-            # Identify the relevant columns
-            index_1_col, key_1_col, value_1_col = 0, 1, 2
-            index_2_col, key_2_col, value_2_col = 5, 6, 8
+            # Handle cases where the sheet is empty or has no relevant data
+            if df.empty or df.shape[1] < 9:
+                print(f'Sheet {sheet_name} has insufficient data or is empty.')
+                continue
 
-            # Convert all values in the key and value columns to strings
-            df[key_1_col] = df[key_1_col].astype(str)
-            df[key_2_col] = df[key_2_col].astype(str)
-            df[value_1_col] = df[value_1_col].astype(str)
-            df[value_2_col] = df[value_2_col].astype(str)
+            # Perform the XLOOKUP equivalent - lookup Value_1 based on Key_1 and Key_2
+            df['Lookup_Value'] = df.apply(lambda row: row[VALUE_1_COL] if row[KEY_COL_1] == row[KEY_COL_2] else None, axis=1)
 
-            # Check for duplicates in the Key columns
-            duplicate_keys_1 = df[key_1_col].duplicated(keep=False)
-            duplicate_keys_2 = df[key_2_col].duplicated(keep=False)
+            # Compare Value_2 (column 9) with Lookup_Value (column 10)
+            df['Match'] = df.apply(lambda row: row[VALUE_2_COL] == row['Lookup_Value'], axis=1)
 
-            # Add Match column
-            df['Match'] = None  # Initialize Match column with None
+            # Save the modified DataFrame back to the same sheet with the new 'Match' column
+            with pd.ExcelWriter(file_path, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
+                df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+            
+            # Collect unmatched rows for reporting
+            unmatched = df[df['Match'] == False].copy()
+            unmatched['Sheet Name'] = sheet_name
+            unmatched['Row Number'] = unmatched.index + 1
+            unmatched = unmatched[[KEY_COL_2, VALUE_1_COL, VALUE_2_COL, 'Sheet Name', 'Row Number']]
+            unmatched.columns = ['Key', 'Old Info', 'New Info', 'Sheet Name', 'Row Number']
+            unmatched_rows = pd.concat([unmatched_rows, unmatched], ignore_index=True)
 
-            # Identify matching rows where keys and values match and there are no duplicates
-            for idx, row in df.iterrows():
-                if not duplicate_keys_1[idx] and not duplicate_keys_2[idx]:
-                    df.at[idx, 'Match'] = (row[key_1_col] == row[key_2_col]) and (row[value_1_col] == row[value_2_col])
-                else:
-                    df.at[idx, 'Match'] = None
-
-            # Collect unmatched rows (those where Match is False or None)
-            unmatched = df[(df['Match'] == False) | (df['Match'].isna())]
-            for idx, row in unmatched.iterrows():
-                unmatched_rows.append({
-                    'Key': row[key_1_col],
-                    'Old Info': row[value_1_col],
-                    'New Info': row[value_2_col],
-                    'Sheet Name': sheet_name,
-                    'Row Number': idx + 2  # Adding 2 because of 0-based index and no header
-                })
-
-            # Save the updated sheet back to the file
-            with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-                df.to_excel(writer, sheet_name=sheet_name, header=False, index=False)
-        
-        return unmatched_rows
-
+    except InvalidFileException as e:
+        print(f'Error processing file {file_path}: {e}')
     except Exception as e:
-        print(f"Error processing file {file_path}: {e}")
-        return []
+        print(f'An unexpected error occurred: {e}')
 
-# Function to generate a report for unmatched rows
-def generate_report(unmatched_rows, report_path):
-    report_df = pd.DataFrame(unmatched_rows)
-    report_df.to_excel(report_path, index=False)
-    print(f"Unmatched rows report saved to: {report_path}")
-
-# Main function to process all Excel files in the folder
-def process_folder(folder_path):
-    unmatched_rows = []
+def main():
+    # Loop through all Excel files in the folder
+    for filename in os.listdir(folder_path):
+        if filename.endswith('.xlsx'):
+            file_path = os.path.join(folder_path, filename)
+            process_excel_file(file_path)
     
-    for file_name in os.listdir(folder_path):
-        if file_name.endswith(".xlsx"):
-            file_path = os.path.join(folder_path, file_name)
-            print(f"Processing file: {file_path}")
-            unmatched_rows += process_excel_file(file_path)
-    
-    # Generate the report
-    report_path = os.path.join(folder_path, 'unmatched_rows_report.xlsx')
-    generate_report(unmatched_rows, report_path)
+    # Save the unmatched rows report
+    unmatched_rows.to_csv(output_report_file, index=False)
+    print(f'Unmatched rows report saved to {output_report_file}')
 
 if __name__ == '__main__':
-    # Set the folder path where the Excel files are stored
-    folder_path = os.path.dirname(os.path.realpath(__file__))
-    
-    # Process all files in the folder
-    process_folder(folder_path)
+    main()
