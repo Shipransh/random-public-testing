@@ -19,14 +19,14 @@ def process_excel_file(file_path):
                 # Read each sheet into a dataframe
                 df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
 
-                # Perform XLOOKUP-like operation by finding the Value_1 (old data value) based on matching keys
-                df['Value_1_Lookup'] = df[7].map(df.set_index(2)[3])  # Lookup old data key (column 2) to match new data key (column 7)
+                # Perform a lookup for each row in column 7 (New Data Key) to find the corresponding old value in column 2
+                df[10] = df[7].map(df.set_index(2)[3])  # Lookup old data value (Value_1 from column 3) based on Key (column 2)
 
-                # Compare Value_1_Lookup (old data value) with Value_2 (new data value in column 9)
-                df['Match'] = df[9] == df['Value_1_Lookup']  # True if matched, False otherwise
+                # Compare the Value_1 (column 10) and Value_2 (column 9) and store the result in the new column 11
+                df[11] = df[9] == df[10]  # True if they match, False if they do not
 
                 # Find unmatched rows (where Match is False)
-                unmatched_df = df[~df['Match']].copy()  # Rows where Match is False
+                unmatched_df = df[~df[11]].copy()  # Rows where Match is False
 
                 # Store information about unmatched rows for reporting
                 if not unmatched_df.empty:
@@ -39,7 +39,7 @@ def process_excel_file(file_path):
                             'Row Number': row.Index + 1  # Row index in the file (1-based for Excel)
                         })
 
-                # Write back the modified dataframe with Match column to the same sheet
+                # Write back the modified dataframe with the new columns (10 and 11) to the same sheet
                 with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
                     df.to_excel(writer, sheet_name=sheet_name, header=False, index=False)
 
