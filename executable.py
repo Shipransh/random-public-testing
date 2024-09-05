@@ -17,11 +17,28 @@ def process_excel_file(file_path):
             index_1_col, key_1_col, value_1_col = 0, 1, 2
             index_2_col, key_2_col, value_2_col = 5, 6, 8
 
-            # Add Match column to compare Value_1 and Value_2 based on Key
-            df['Match'] = (df[key_1_col] == df[key_2_col]) & (df[value_1_col] == df[value_2_col])
+            # Convert all values in the key and value columns to strings
+            df[key_1_col] = df[key_1_col].astype(str)
+            df[key_2_col] = df[key_2_col].astype(str)
+            df[value_1_col] = df[value_1_col].astype(str)
+            df[value_2_col] = df[value_2_col].astype(str)
 
-            # Collect unmatched rows for reporting
-            unmatched = df[df['Match'] == False]
+            # Check for duplicates in the Key columns
+            duplicate_keys_1 = df[key_1_col].duplicated(keep=False)
+            duplicate_keys_2 = df[key_2_col].duplicated(keep=False)
+
+            # Add Match column
+            df['Match'] = None  # Initialize Match column with None
+
+            # Identify matching rows where keys and values match and there are no duplicates
+            for idx, row in df.iterrows():
+                if not duplicate_keys_1[idx] and not duplicate_keys_2[idx]:
+                    df.at[idx, 'Match'] = (row[key_1_col] == row[key_2_col]) and (row[value_1_col] == row[value_2_col])
+                else:
+                    df.at[idx, 'Match'] = None
+
+            # Collect unmatched rows (those where Match is False or None)
+            unmatched = df[(df['Match'] == False) | (df['Match'].isna())]
             for idx, row in unmatched.iterrows():
                 unmatched_rows.append({
                     'Key': row[key_1_col],
