@@ -19,27 +19,27 @@ def process_excel_file(file_path):
                 # Read each sheet into a dataframe
                 df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
 
-                # Separate the old and new data for merging
+                # Separate relevant columns for old and new data
                 old_data = df[[2, 3]]  # Old data: columns 2 (Key) and 3 (Value_1)
                 new_data = df[[7, 9]]  # New data: columns 7 (Key) and 9 (Value_2)
 
-                # Rename columns to make them easier to merge
+                # Rename columns to prepare for merging
                 old_data.columns = ['Old_Key', 'Value_1']
                 new_data.columns = ['New_Key', 'Value_2']
 
-                # Merge the old and new data on their keys
-                merged_data = pd.merge(new_data, old_data, left_on='New_Key', right_on='Old_Key', how='left')
+                # Perform the merge based on keys
+                merged_data = pd.merge(df, old_data, left_on=7, right_on='Old_Key', how='left')
 
-                # Add the merged data back to the original dataframe in column 10 for Value_1_Lookup
+                # Add the merged data (Value_1 from old data) into column 10
                 df[10] = merged_data['Value_1']
 
-                # Compare Value_1_Lookup (column 10) and Value_2 (column 9) and store the result in column 11
-                df[11] = df[9] == df[10]  # True if matched, False if not
+                # Compare Value_1 (column 10) and Value_2 (column 9) to generate the match result in column 11
+                df[11] = df[9] == df[10]
 
-                # Find unmatched rows (where Match is False)
-                unmatched_df = df[~df[11]].copy()  # Rows where Match is False
+                # Identify rows where there is no match (False in column 11)
+                unmatched_df = df[~df[11]].copy()
 
-                # Store information about unmatched rows for reporting
+                # Store unmatched rows information for the report
                 if not unmatched_df.empty:
                     for row in unmatched_df.itertuples():
                         unmatched_rows.append({
@@ -47,10 +47,10 @@ def process_excel_file(file_path):
                             'Old Info': row[10],  # Old Value_1 (from lookup)
                             'New Info': row[9],  # New Value_2
                             'Sheet Name': sheet_name,
-                            'Row Number': row.Index + 1  # Row index in the file (1-based for Excel)
+                            'Row Number': row.Index + 1  # Excel uses 1-based indexing
                         })
 
-                # Write back the modified dataframe with new columns (10 and 11) to the same sheet
+                # Write the updated dataframe with columns 10 (Value_1_Lookup) and 11 (Match) back to the Excel file
                 with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
                     df.to_excel(writer, sheet_name=sheet_name, header=False, index=False)
 
@@ -62,7 +62,7 @@ def process_excel_file(file_path):
         print(f"Error processing {file_path}: {e}")
 
 def output_unmatched_report(file_path, unmatched_rows):
-    # Output the unmatched rows into a separate report file
+    # Create a separate Excel report with unmatched rows
     report_file_path = os.path.splitext(file_path)[0] + "_unmatched_report.xlsx"
     unmatched_df = pd.DataFrame(unmatched_rows)
     
