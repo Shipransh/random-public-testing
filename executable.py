@@ -19,14 +19,16 @@ def process_excel_file(file_path):
                 # Read each sheet into a dataframe
                 df = pd.read_excel(xls, sheet_name=sheet_name, header=None)
 
-                # Perform XLOOKUP-like operation and comparison
-                df['Value_1_Lookup'] = df[7].map(df.set_index(2)[3])  # XLOOKUP equivalent
-                df['Match'] = df[9] == df['Value_1_Lookup']  # Compare Value_2 (column 9) with Value_1 (Lookup result)
+                # Perform XLOOKUP-like operation by finding the Value_1 (old data value) based on matching keys
+                df['Value_1_Lookup'] = df[7].map(df.set_index(2)[3])  # Lookup old data key (column 2) to match new data key (column 7)
 
-                # Find unmatched rows
+                # Compare Value_1_Lookup (old data value) with Value_2 (new data value in column 9)
+                df['Match'] = df[9] == df['Value_1_Lookup']  # True if matched, False otherwise
+
+                # Find unmatched rows (where Match is False)
                 unmatched_df = df[~df['Match']].copy()  # Rows where Match is False
 
-                # Store information about unmatched rows
+                # Store information about unmatched rows for reporting
                 if not unmatched_df.empty:
                     for row in unmatched_df.itertuples():
                         unmatched_rows.append({
