@@ -1,73 +1,60 @@
 import os
-import sys
 import pandas as pd
-from openpyxl import load_workbook
 
-# Define your snippet function to process the data
-def process_sheet(df):
-    try:
-        # Create the mapping dictionary from column 1 and 2
-        mapping_dict = pd.Series(df[2].values, index=df[1]).to_dict()
+# Define the function that processes each DataFrame and collects False rows
+def process_dataframe(df):
+    # Create the mapping dictionary from columns 1 and 2
+    mapping_dict = pd.Series(df.iloc[:, 1].values, index=df.iloc[:, 0]).to_dict()
+    
+    # Apply the mapping to column 6 and store results in column 9
+    df[9] = df[6].map(mapping_dict)
+    
+    # Compare columns 8 and 9 as strings and store results in column 10
+    df[10] = df[9].astype(str) == df[8].astype(str)
+    
+    # Return the rows where df[10] is False
+    false_rows = df[df[10] == False]
+    return false_rows
 
-        # Map column 6 using the created dictionary, and compare columns 8 and 9
-        df[9] = df[6].map(mapping_dict)
-        df[10] = df[9].astype(str) == df[8].astype(str)
-    except (KeyError, ValueError) as e:
-        # Handle any KeyError, duplicates, or NaN in keys by setting column 10 to False
-        df[9] = False
-        df[10] = False
-    return df
+# Define the function that processes all sheets in an Excel file and collects all False rows
+def process_excel_file(file_path, false_rows_collector):
+    # Load the Excel file
+    xls = pd.ExcelFile(file_path)
+    
+    # Process each sheet
+    for sheet_name in xls.sheet_names:
+        df = pd.read_excel(file_path, sheet_name=sheet_name)
+        false_rows = process_dataframe(df)
+        
+        # If there are any false rows, add them to the collector with the sheet name
+        if not false_rows.empty:
+            false_rows['Sheet'] = sheet_name  # Add a column with the sheet name
+            false_rows_collector.append(false_rows)
 
-# Function to find the folder containing the Excel files
-def get_current_folder():
-    if getattr(sys, 'frozen', False):
-        # If the script is frozen (turned into an .exe by PyInstaller), use the executable folder
-        folder_path = os.path.dirname(sys.executable)
+# Main function to process all Excel files in the same folder as this script
+def process_all_excel_files_in_folder():
+    # Get the current folder where the script is located
+    current_folder = os.path.dirname(os.path.abspath(__file__))
+    
+    # Collector to gather all false rows from all sheets
+    false_rows_collector = []
+    
+    # Iterate through all files in the folder
+    for file_name in os.listdir(current_folder):
+        if file_name.endswith('.xlsx') and '_processed' in file_name:
+            file_path = os.path.join(current_folder, file_name)
+            print(f"Processing file: {file_name}")
+            process_excel_file(file_path, false_rows_collector)
+            print(f"Finished processing file: {file_name}")
+    
+    # If there are any false rows, save them to a new Excel file
+    if false_rows_collector:
+        combined_false_rows = pd.concat(false_rows_collector, ignore_index=True)
+        output_file_path = os.path.join(current_folder, "false_rows_collected.xlsx")
+        combined_false_rows.to_excel(output_file_path, index=False)
+        print(f"False rows saved to: {output_file_path}")
     else:
-        # If the script is running normally, use the script's location
-        folder_path = os.path.dirname(os.path.abspath(__file__))
-    return folder_path
-
-# Function to process all Excel files and sheets in the folder
-def process_excel_files(output_file):
-    folder_path = get_current_folder()
-
-    # Initialize the result list to store the sheet names and required columns
-    result = []
-
-    # Loop through every Excel file in the folder
-    for filename in os.listdir(folder_path):
-        if filename.endswith(".xlsx"):
-            file_path = os.path.join(folder_path, filename)
-            print(f"Processing file: {file_path}")
-
-            # Load the workbook and process each sheet
-            workbook = load_workbook(file_path)
-            for sheetname in workbook.sheetnames:
-                print(f"Processing sheet: {sheetname}")
-
-                # Load the sheet into a pandas DataFrame
-                df = pd.DataFrame(workbook[sheetname].values)
-
-                # Apply the processing logic to the sheet
-                df_processed = process_sheet(df)
-
-                # Write back the processed DataFrame to the workbook
-                for row in dataframe_to_rows(df_processed, index=False, header=False):
-                    workbook[sheetname].append(row)
-
-                # Append sheet name and required columns to the result list
-                for index, row in df_processed.iterrows():
-                    result.append([sheetname, row[6], row[8], row[9]])
-
-            # Save the workbook with the processed data
-            workbook.save(file_path)
-
-    # Save the result list to a CSV file
-    result_df = pd.DataFrame(result, columns=['Sheet Name', 'Column 6', 'Column 8', 'Column 9'])
-    result_df.to_csv(os.path.join(folder_path, output_file), index=False)
-    print(f"Results saved to {output_file}")
+        print("No false rows found.")
 
 if __name__ == "__main__":
-    output_file = "output.csv"  # Define your output file name
-    process_excel_files(output_file)
+    process_all_excel_files_in_folder()
