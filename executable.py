@@ -1,49 +1,45 @@
-import os
 import pandas as pd
+import os
 
-# Define the function that processes each DataFrame
-def process_dataframe(df):
-    # Create the mapping dictionary from columns 1 and 2
-    mapping_dict = pd.Series(df.iloc[:, 1].values, index=df.iloc[:, 0]).to_dict()
-    
-    # Apply the mapping to column 6 and store results in column 9
-    df[9] = df[6].map(mapping_dict)
-    
-    # Compare columns 8 and 9 as strings and store results in column 10
-    df[10] = df[9].astype(str) == df[8].astype(str)
-    
-    # Check if there are any False values in column 10
-    if not df[10].all():
-        print("False rows found!")
-        print(df[df[10] == False])  # Output rows where the comparison is False
-    else:
-        print("No false rows found.")
-    
-    return df
+# Function to apply the transformation to a dataframe
+def apply_transformation(df):
+    try:
+        # Create mapping dictionary from column 1 and column 2
+        mapping_dict = pd.Series(df.iloc[:, 1].values, index=df.iloc[:, 0]).to_dict()
 
-# Define the function that processes all sheets in an Excel file
-def process_excel_file(file_path):
-    # Load the Excel file
-    xls = pd.ExcelFile(file_path)
-    
-    # Process each sheet
-    for sheet_name in xls.sheet_names:
-        df = pd.read_excel(file_path, sheet_name=sheet_name)
-        print(f"Processing sheet: {sheet_name} in file: {os.path.basename(file_path)}")
-        df = process_dataframe(df)
+        # Map column 6 using the mapping_dict and assign the result to column 9
+        df.iloc[:, 8] = df.iloc[:, 5].map(mapping_dict)
 
-# Main function to process all Excel files in the same folder as this script
-def process_all_excel_files_in_folder():
-    # Get the current folder where the script is located
-    current_folder = os.path.dirname(os.path.abspath(__file__))
-    
-    # Iterate through all files in the folder
-    for file_name in os.listdir(current_folder):
-        if file_name.endswith('.xlsx'):
-            file_path = os.path.join(current_folder, file_name)
-            print(f"Processing file: {file_name}")
-            process_excel_file(file_path)
-            print(f"Finished processing file: {file_name}")
+        # Compare column 9 and column 8, result is saved in column 10
+        df.iloc[:, 9] = df.iloc[:, 8].astype(str) == df.iloc[:, 7].astype(str)
 
-if __name__ == "__main__":
-    process_all_excel_files_in_folder()
+        return df
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return df
+
+# Get the current working directory (same folder as the executable)
+folder_path = os.path.dirname(os.path.realpath(__file__))
+
+# Loop through all Excel files in the folder
+for file in os.listdir(folder_path):
+    if file.endswith(".xlsx") or file.endswith(".xls"):
+        file_path = os.path.join(folder_path, file)
+
+        # Load the Excel file
+        try:
+            excel_file = pd.ExcelFile(file_path)
+            with pd.ExcelWriter(file_path, engine='openpyxl', mode='a') as writer:
+                for sheet_name in excel_file.sheet_names:
+                    # Load the sheet
+                    df = pd.read_excel(excel_file, sheet_name=sheet_name)
+
+                    # Apply the transformation
+                    df = apply_transformation(df)
+
+                    # Write the updated dataframe back to the sheet
+                    df.to_excel(writer, sheet_name=sheet_name, index=False)
+        except Exception as e:
+            print(f"Failed to process {file}: {e}")
+
+print("Processing complete.")
