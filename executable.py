@@ -3,81 +3,71 @@ import sys
 import pandas as pd
 from openpyxl import load_workbook
 
-def find_excel_files_in_current_folder():
-    """Identify all Excel files in the current folder."""
+# Define your snippet function to process the data
+def process_sheet(df):
+    try:
+        # Create the mapping dictionary from column 1 and 2
+        mapping_dict = pd.Series(df[2].values, index=df[1]).to_dict()
+
+        # Map column 6 using the created dictionary, and compare columns 8 and 9
+        df[9] = df[6].map(mapping_dict)
+        df[10] = df[9].astype(str) == df[8].astype(str)
+    except (KeyError, ValueError) as e:
+        # Handle any KeyError, duplicates, or NaN in keys by setting column 10 to False
+        df[9] = False
+        df[10] = False
+    return df
+
+# Function to find the folder containing the Excel files
+def get_current_folder():
     if getattr(sys, 'frozen', False):
-        # If the script is frozen (e.g., turned into an .exe by PyInstaller), use the executable folder
+        # If the script is frozen (turned into an .exe by PyInstaller), use the executable folder
         folder_path = os.path.dirname(sys.executable)
     else:
-        # If the script is running normally (not frozen), use the script's location
+        # If the script is running normally, use the script's location
         folder_path = os.path.dirname(os.path.abspath(__file__))
-    
-    # List all Excel files in the folder
-    excel_files = [f for f in os.listdir(folder_path) if f.endswith('.xlsx')]
-    return folder_path, excel_files
+    return folder_path
 
+# Function to process all Excel files and sheets in the folder
 def process_excel_files(output_file):
-    """Process each Excel file in the folder, applying transformations and collecting data."""
-    folder_path, excel_files = find_excel_files_in_current_folder()
-    summary_data = []  # To store sheet names and column data
+    folder_path = get_current_folder()
 
-    for excel_file in excel_files:
-        file_path = os.path.join(folder_path, excel_file)
-        print(f"Processing file: {file_path}")
-        
-        # Load the Excel file using openpyxl
-        excel_data = pd.ExcelFile(file_path, engine='openpyxl')
-        
-        # Process each sheet in the Excel file
-        for sheet_name in excel_data.sheet_names:
-            df = pd.read_excel(excel_data, sheet_name=sheet_name, engine='openpyxl')
-            print(f"Processing sheet: {sheet_name}")
+    # Initialize the result list to store the sheet names and required columns
+    result = []
 
-            # Check if the necessary columns exist in the dataframe
-            required_columns = [1, 2, 6, 8]
-            if not all(col in df.columns for col in required_columns):
-                print(f"Skipping sheet {sheet_name} in {excel_file} - required columns not found.")
-                continue
+    # Loop through every Excel file in the folder
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".xlsx"):
+            file_path = os.path.join(folder_path, filename)
+            print(f"Processing file: {file_path}")
 
-            try:
-                # Apply the transformation to the sheet
-                mapping_dict = pd.Series(df[2].values, index=df[1]).to_dict()
-                df[9] = df[6].map(mapping_dict)
-                df[10] = df[9].astype(str) == df[8].astype(str)
+            # Load the workbook and process each sheet
+            workbook = load_workbook(file_path)
+            for sheetname in workbook.sheetnames:
+                print(f"Processing sheet: {sheetname}")
 
-                # Save the modified sheet back into the Excel file
-                output_file_path = os.path.join(folder_path, f"edited_{excel_file}")
-                
-                # If the file already exists, load it and append the new sheet
-                if os.path.exists(output_file_path):
-                    with pd.ExcelWriter(output_file_path, engine='openpyxl', mode='a', if_sheet_exists='replace') as writer:
-                        df.to_excel(writer, sheet_name=sheet_name, index=False)
-                else:
-                    with pd.ExcelWriter(output_file_path, engine='openpyxl') as writer:
-                        df.to_excel(writer, sheet_name=sheet_name, index=False)
-                
-                # Extract relevant columns for the summary
-                for _, row in df.iterrows():
-                    summary_data.append({
-                        'File Name': excel_file,
-                        'Sheet Name': sheet_name,
-                        'Column 6': row[6],
-                        'Column 8': row[8],
-                        'Column 9': row[9]
-                    })
+                # Load the sheet into a pandas DataFrame
+                df = pd.DataFrame(workbook[sheetname].values)
 
-            except KeyError as e:
-                print(f"KeyError {e} encountered in sheet {sheet_name} of file {excel_file}. Skipping sheet.")
-                continue
+                # Apply the processing logic to the sheet
+                df_processed = process_sheet(df)
 
-    # Output the collected data into a CSV file
-    if summary_data:
-        summary_df = pd.DataFrame(summary_data)
-        summary_df.to_csv(os.path.join(folder_path, output_file), index=False)
-        print(f"Summary saved to {output_file}")
-    else:
-        print("No data to save to summary file.")
+                # Write back the processed DataFrame to the workbook
+                for row in dataframe_to_rows(df_processed, index=False, header=False):
+                    workbook[sheetname].append(row)
 
-if __name__ == '__main__':
-    output_file = "summary_output.csv"
+                # Append sheet name and required columns to the result list
+                for index, row in df_processed.iterrows():
+                    result.append([sheetname, row[6], row[8], row[9]])
+
+            # Save the workbook with the processed data
+            workbook.save(file_path)
+
+    # Save the result list to a CSV file
+    result_df = pd.DataFrame(result, columns=['Sheet Name', 'Column 6', 'Column 8', 'Column 9'])
+    result_df.to_csv(os.path.join(folder_path, output_file), index=False)
+    print(f"Results saved to {output_file}")
+
+if __name__ == "__main__":
+    output_file = "output.csv"  # Define your output file name
     process_excel_files(output_file)
