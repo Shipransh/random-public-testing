@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-# Define the function that processes each DataFrame and collects False rows
+# Define the function that processes each DataFrame
 def process_dataframe(df):
     # Create the mapping dictionary from columns 1 and 2
     mapping_dict = pd.Series(df.iloc[:, 1].values, index=df.iloc[:, 0]).to_dict()
@@ -12,49 +12,38 @@ def process_dataframe(df):
     # Compare columns 8 and 9 as strings and store results in column 10
     df[10] = df[9].astype(str) == df[8].astype(str)
     
-    # Return the rows where df[10] is False
-    false_rows = df[df[10] == False]
-    return false_rows
+    return df
 
-# Define the function that processes all sheets in an Excel file and collects all False rows
-def process_excel_file(file_path, false_rows_collector):
+# Define the function that processes all sheets in an Excel file
+def process_excel_file(file_path):
     # Load the Excel file
     xls = pd.ExcelFile(file_path)
     
     # Process each sheet
+    processed_sheets = {}
     for sheet_name in xls.sheet_names:
         df = pd.read_excel(file_path, sheet_name=sheet_name)
-        false_rows = process_dataframe(df)
-        
-        # If there are any false rows, add them to the collector with the sheet name
-        if not false_rows.empty:
-            false_rows['Sheet'] = sheet_name  # Add a column with the sheet name
-            false_rows_collector.append(false_rows)
+        df = process_dataframe(df)
+        processed_sheets[sheet_name] = df
+    
+    # Save the processed data to a new Excel file
+    output_file_path = f"{os.path.splitext(file_path)[0]}_processed.xlsx"
+    with pd.ExcelWriter(output_file_path) as writer:
+        for sheet_name, df in processed_sheets.items():
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
 
 # Main function to process all Excel files in the same folder as this script
 def process_all_excel_files_in_folder():
     # Get the current folder where the script is located
     current_folder = os.path.dirname(os.path.abspath(__file__))
     
-    # Collector to gather all false rows from all sheets
-    false_rows_collector = []
-    
     # Iterate through all files in the folder
     for file_name in os.listdir(current_folder):
-        if file_name.endswith('.xlsx') and '_processed' in file_name:
+        if file_name.endswith('.xlsx'):
             file_path = os.path.join(current_folder, file_name)
             print(f"Processing file: {file_name}")
-            process_excel_file(file_path, false_rows_collector)
+            process_excel_file(file_path)
             print(f"Finished processing file: {file_name}")
-    
-    # If there are any false rows, save them to a new Excel file
-    if false_rows_collector:
-        combined_false_rows = pd.concat(false_rows_collector, ignore_index=True)
-        output_file_path = os.path.join(current_folder, "false_rows_collected.xlsx")
-        combined_false_rows.to_excel(output_file_path, index=False)
-        print(f"False rows saved to: {output_file_path}")
-    else:
-        print("No false rows found.")
 
 if __name__ == "__main__":
     process_all_excel_files_in_folder()
