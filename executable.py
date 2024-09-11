@@ -12,6 +12,13 @@ def process_dataframe(df):
     # Compare columns 8 and 9 as strings and store results in column 10
     df[10] = df[9].astype(str) == df[8].astype(str)
     
+    # Check if there are any False values in column 10
+    if not df[10].all():
+        print("False rows found!")
+        print(df[df[10] == False])  # Output rows where the comparison is False
+    else:
+        print("No false rows found.")
+    
     return df
 
 # Define the function that processes all sheets in an Excel file
@@ -20,17 +27,10 @@ def process_excel_file(file_path):
     xls = pd.ExcelFile(file_path)
     
     # Process each sheet
-    processed_sheets = {}
     for sheet_name in xls.sheet_names:
         df = pd.read_excel(file_path, sheet_name=sheet_name)
+        print(f"Processing sheet: {sheet_name} in file: {os.path.basename(file_path)}")
         df = process_dataframe(df)
-        processed_sheets[sheet_name] = df
-    
-    # Save the processed data to a new Excel file
-    output_file_path = f"{os.path.splitext(file_path)[0]}_processed.xlsx"
-    with pd.ExcelWriter(output_file_path) as writer:
-        for sheet_name, df in processed_sheets.items():
-            df.to_excel(writer, sheet_name=sheet_name, index=False)
 
 # Main function to process all Excel files in the same folder as this script
 def process_all_excel_files_in_folder():
