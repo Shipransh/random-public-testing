@@ -1,45 +1,55 @@
-import pandas as pd
-import os
+def add_headers_to_sheet(df, headers):
+    df.columns = headers
+    return df
 
-# Function to apply the transformation to a dataframe
-def apply_transformation(df):
+def force_overwrite_excel_sheet(df, file_path, sheet_name):
     try:
-        # Create mapping dictionary from column 1 and column 2
-        mapping_dict = pd.Series(df.iloc[:, 1].values, index=df.iloc[:, 0]).to_dict()
+        # Try to load the existing workbook
+        book = load_workbook(file_path)
+        
+        # If the sheet exists, remove it
+        if sheet_name in book.sheetnames:
+            del book[sheet_name]
+        
+        # Save the workbook after removing the sheet
+        book.save(file_path)
+        book.close()
+    except FileNotFoundError:
+        # If the file does not exist, it will be created
+        pass
 
-        # Map column 6 using the mapping_dict and assign the result to column 9
-        df.iloc[:, 8] = df.iloc[:, 5].map(mapping_dict)
+    # Write the DataFrame to the Excel file, creating the sheet
+    with pd.ExcelWriter(file_path, engine='openpyxl', mode='a') as writer:
+        df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-        # Compare column 9 and column 8, result is saved in column 10
-        df.iloc[:, 9] = df.iloc[:, 8].astype(str) == df.iloc[:, 7].astype(str)
 
-        return df
-    except Exception as e:
-        print(f"An error occurred: {e}")
-        return df
-
-# Get the current working directory (same folder as the executable)
-folder_path = os.path.dirname(os.path.realpath(__file__))
+# Folder path containing the Excel files
+folder_path = r""
+# Define the headers you want to add
 
 # Loop through all Excel files in the folder
 for file in os.listdir(folder_path):
-    if file.endswith(".xlsx") or file.endswith(".xls"):
-        file_path = os.path.join(folder_path, file)
-
-        # Load the Excel file
-        try:
-            excel_file = pd.ExcelFile(file_path)
-            with pd.ExcelWriter(file_path, engine='openpyxl', mode='a') as writer:
-                for sheet_name in excel_file.sheet_names:
-                    # Load the sheet
-                    df = pd.read_excel(excel_file, sheet_name=sheet_name)
-
-                    # Apply the transformation
-                    df = apply_transformation(df)
-
-                    # Write the updated dataframe back to the sheet
-                    df.to_excel(writer, sheet_name=sheet_name, index=False)
-        except Exception as e:
-            print(f"Failed to process {file}: {e}")
-
-print("Processing complete.")
+    try:
+        if file.endswith(".xlsx") or file.endswith(".xls"):
+            file_path = os.path.join(folder_path, file)
+            try:
+                excel_file = pd.ExcelFile(file_path)
+            except Exception as e:
+                print(f"Failed to load Excel file {file}: {e}. Skipping file.")
+                continue
+            for sheet_name in excel_file.sheet_names:
+                try:
+                    print(sheet_name)
+                    df = pd.read_excel(excel_file, sheet_name=sheet_name, header=None)
+                    df = add_headers_to_sheet(df, np.arange(df.shape[1]))
+                    mapping_dict = pd.Series(df[2].values, index=df[1]).to_dict()
+                    df[9] = df[6].map(mapping_dict)
+                    df['Header 10'] = df[9].astype(str) == df[8].astype(str)
+                    force_overwrite_excel_sheet(df, file_path=file_path, sheet_name=sheet_name)
+                    print(f"Sheet Processed: {sheet_name}")
+                except Exception as e:
+                    print(f"Failed to process sheet {sheet_name} in file {file}: {e}. Skipping sheet.")
+                    continue
+    except Exception as e:
+        print(f"Failed to process file {file}: {e}. Skipping file.")
+        continue
