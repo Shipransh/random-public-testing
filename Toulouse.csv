@@ -1,0 +1,12 @@
+A/C,A/C-Value,PARTS REPLACEMENT STATUS,,,
+ESN,PARTS REPLACED,REMOVED,,INSTALLED,
+,,P/N,S/N,P/N ,S/N
+ESN1,Part1,R P/N 1,R S/N 1,I P/N 1,I S/N 1
+pos 1,Part2,R P/N 2,R S/N 2,I P/N 2,I S/N 2
+ESN2,X,R P/N 3,R S/N 3,I P/N 3,I S/N 3
+pos 2,X,R P/N 4,R S/N 4,I P/N 4,I S/N 4
+,,,,,
+,,,,,ils_value
+,,,,name,
+,,,,CFM Configuration ,
+,,,,Toulouse,
